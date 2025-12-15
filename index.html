@@ -1,402 +1,491 @@
 
 <!doctype html>
-<html lang="pt-br">
+<html lang='pt-br'>
 <head>
-  <meta charset="utf-8">
+  <meta charset='utf-8'>
   <title>Estudo de Expansão Elgin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <!-- Leaflet -->
+  <link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css' integrity='sha256-p4QWwWZ+GqYVQbW4rCIwM7vTnP52zFfX+ZQt3Zp3lqo=' crossorigin=''>
+  <script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js' integrity='sha256-20nQCmZ8Z3H+gX1p3CwFqZ6bY6o2ZbE+Z9cP2GZ8pcM=' crossorigin=''></script>
   <style>
-    body { font-family: Arial, Helvetica, sans-serif; margin: 24px; }
+    /* Não alteramos a paleta do site: apenas utilitários e altura do mapa */
+    :root { --accent-elgin: #0d47a1; /* azul Elgin nos marcadores */ --accent-outros: #8B0000; /* vermelho escuro */ }
+    body { margin: 24px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
     h1 { margin: 0 0 8px; }
     h3 { margin-top: 24px; }
     table { border-collapse: collapse; width: 100%; margin-top: 12px; }
     th, td { border: 1px solid #ddd; padding: 8px; }
-    th { background: #f4f4f4; text-align: left; }
-    .grid { display: grid; grid-template-columns: repeat(2, minmax(200px, 1fr)); gap: 16px; margin-top: 12px; }
-    .card { border: 1px solid #eee; border-radius: 8px; padding: 12px; background: #fafafa; }
-    .muted { color: #666; font-size: 0.9em; }
+    th { text-align: left; }
+    .num { text-align: right; }
+    #map { height: 520px; width: 100%; border: 1px solid #ddd; border-radius: 8px; }
+    .toolbar { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:8px 0 16px; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.85em; margin-right:6px; border:1px solid #ccc; }
+    .badge.elgin { color: var(--accent-elgin); border-color: var(--accent-elgin); }
+    .badge.outros { color: var(--accent-outros); border-color: var(--accent-outros); }
   </style>
 </head>
 <body>
+  <div>ELGIN</div>
   <h1>Estudo de Expansão Elgin</h1>
-  <div class="muted">Base atualizada a partir da planilha <strong>Estudo clientes - Reunião de Logística.xlsx</strong></div>
+  <div>Início Base de dados</div>
 
   <h3>Filtros</h3>
-  <div class="muted">Fornecedor · Região · UF · Modalidade</div>
-
-  <div class="grid">
-    <div class="card"><h4>Fábricas</h4>
-
-39</div>
-    <div class="card"><h4>Total de Fornecedores</h4>
-
-23</div>
+  <div class='toolbar'>
+    <label><input type='checkbox' id='chkElgin' checked> Elgin</label>
+    <label><input type='checkbox' id='chkOutros' checked> Fornecedores</label>
+    <select id='selRegiao'><option value=''>Região</option></select>
+    <select id='selUF'><option value=''>UF</option></select>
+    <select id='selModalidade'><option value=''>Modalidade</option></select>
+    <button id='btnReset'>Resetar filtros</button>
   </div>
 
-  <h3>Resumo por Fornecedor e Região</h3>
+  <div style='margin:8px 0;'>
+    <span class='badge elgin'>Elgin = azul</span>
+    <span class='badge outros'>Fornecedores = vermelho escuro</span>
+  </div>
+
+  <h3>Mapa do Brasil</h3>
+  <div id='map'></div>
+  <p>Mapa por Leaflet + OpenStreetMap. © OpenStreetMap contributors.</p>
+
+  <h4>Fábricas</h4>
+  <div>39</div>
+
+  <h4>Total de Fornecedores</h4>
+  <div>23</div>
+
   <table>
-  <tr>
-    <th>Fornecedor</th>
-    <th>Região</th>
-    <th>Qtd Sites</th>
-    <th>Área Total (m²)</th>
-  </tr>
-<tr>
+    <tr>
+      <th>Fornecedor</th>
+      <th>Região</th>
+      <th>Qtd Sites</th>
+      <th>Área Total (m²)</th>
+    </tr>
+    <tr>
   <td>Avant/Grupo WDF</td>
   <td>Sul</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Bic</td>
   <td>Norte</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Bic</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Blumenau</td>
   <td>Sul</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>2</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Britânia</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>2</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Britânia</td>
   <td>Sul</td>
-  <td style='text-align:right'>3</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>3</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Cantu</td>
   <td>Sul</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>12.000</td>
+  <td class='num'>2</td>
+  <td class='num'>12.000</td>
 </tr>
 <tr>
   <td>Cantu</td>
   <td>Nordeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Cantu</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>3</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>3</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Dufrio</td>
   <td>Nordeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Dufrio</td>
   <td>Norte</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Dufrio</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>2</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Dufrio</td>
   <td>Sul</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Duracel</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>2</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Elgin</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>65.000</td>
+  <td class='num'>2</td>
+  <td class='num'>65.000</td>
 </tr>
 <tr>
   <td>Elgin</td>
   <td>Sul</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>51.800</td>
+  <td class='num'>2</td>
+  <td class='num'>51.800</td>
 </tr>
 <tr>
   <td>Elgin</td>
   <td>Norte</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>21.000</td>
+  <td class='num'>1</td>
+  <td class='num'>21.000</td>
 </tr>
 <tr>
   <td>Elgin</td>
   <td>Nordeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>10.000</td>
+  <td class='num'>1</td>
+  <td class='num'>10.000</td>
 </tr>
 <tr>
   <td>Frigelar</td>
   <td>Centro Oeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Frigelar</td>
   <td>Nordeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Frigelar</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>4</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>4</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Frigelar</td>
   <td>Sul</td>
-  <td style='text-align:right'>4</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>4</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>G-Light</td>
   <td>Nordeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>G-Light</td>
   <td>Sul</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Intelbras</td>
   <td>Nordeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Intelbras</td>
   <td>Norte</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Intelbras</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Intelbras</td>
   <td>Sul</td>
-  <td style='text-align:right'>3</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>3</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Leveros</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>12.000</td>
+  <td class='num'>1</td>
+  <td class='num'>12.000</td>
 </tr>
 <tr>
   <td>Leveros</td>
   <td>Nordeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>4.528</td>
+  <td class='num'>1</td>
+  <td class='num'>4.528</td>
 </tr>
 <tr>
   <td>Leveros</td>
   <td>Sul</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>4.000</td>
+  <td class='num'>1</td>
+  <td class='num'>4.000</td>
 </tr>
 <tr>
   <td>Midea</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>3</td>
-  <td style='text-align:right'>25.000</td>
+  <td class='num'>3</td>
+  <td class='num'>25.000</td>
 </tr>
 <tr>
   <td>Midea</td>
   <td>Norte</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Midea</td>
   <td>Sul</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>2</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Mondial - Grupo MK</td>
   <td>Nordeste</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>406.000</td>
+  <td class='num'>2</td>
+  <td class='num'>406.000</td>
 </tr>
 <tr>
   <td>Mondial - Grupo MK</td>
   <td>Norte</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>48.000</td>
+  <td class='num'>1</td>
+  <td class='num'>48.000</td>
 </tr>
 <tr>
   <td>Mondial - Grupo MK</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>22.000</td>
+  <td class='num'>1</td>
+  <td class='num'>22.000</td>
 </tr>
 <tr>
   <td>Nitrolux</td>
   <td>Nordeste</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>2</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Nitrolux</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Panasonic</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>204.000</td>
+  <td class='num'>2</td>
+  <td class='num'>204.000</td>
 </tr>
 <tr>
   <td>Panasonic</td>
   <td>Norte</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>37.541</td>
+  <td class='num'>1</td>
+  <td class='num'>37.541</td>
 </tr>
 <tr>
   <td>Philips</td>
   <td>Nordeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Philips</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>2</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Soprano</td>
   <td>Centro Oeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Soprano</td>
   <td>Sul</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>2</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Steck</td>
   <td>Norte</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Steck</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>2</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Taschibra</td>
   <td>Sul</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>Tramontina</td>
   <td>Sul</td>
-  <td style='text-align:right'>6</td>
-  <td style='text-align:right'>732.087,62</td>
+  <td class='num'>6</td>
+  <td class='num'>732.087,62</td>
 </tr>
 <tr>
   <td>Tramontina</td>
   <td>Nordeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>95.000</td>
+  <td class='num'>1</td>
+  <td class='num'>95.000</td>
 </tr>
 <tr>
   <td>Tramontina</td>
   <td>Norte</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>42.000</td>
+  <td class='num'>1</td>
+  <td class='num'>42.000</td>
 </tr>
 <tr>
   <td>Vonder - Grupo OVD</td>
   <td>Sul</td>
-  <td style='text-align:right'>3</td>
-  <td style='text-align:right'>58.000</td>
+  <td class='num'>3</td>
+  <td class='num'>58.000</td>
 </tr>
 <tr>
   <td>Vonder - Grupo OVD</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>47.000</td>
+  <td class='num'>2</td>
+  <td class='num'>47.000</td>
 </tr>
 <tr>
   <td>Vonder - Grupo OVD</td>
   <td>Nordeste</td>
-  <td style='text-align:right'>2</td>
-  <td style='text-align:right'>34.500</td>
+  <td class='num'>2</td>
+  <td class='num'>34.500</td>
 </tr>
 <tr>
   <td>Vonder - Grupo OVD</td>
   <td>Centro Oeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>16.000</td>
+  <td class='num'>1</td>
+  <td class='num'>16.000</td>
 </tr>
 <tr>
   <td>WEG</td>
   <td>Nordeste</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>WEG</td>
   <td>Norte</td>
-  <td style='text-align:right'>1</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>1</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>WEG</td>
   <td>Sudeste</td>
-  <td style='text-align:right'>6</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>6</td>
+  <td class='num'>0</td>
 </tr>
 <tr>
   <td>WEG</td>
   <td>Sul</td>
-  <td style='text-align:right'>6</td>
-  <td style='text-align:right'>0</td>
+  <td class='num'>6</td>
+  <td class='num'>0</td>
 </tr>
-</table>
+  </table>
 
-  <p class="muted" style="margin-top:24px;">Mapa por Leaflet + OpenStreetMap. © OpenStreetMap contributors.</p>
+  <script>
+    // Dados da planilha BD serializados no HTML
+    const SITES = [{"Fornecedor": "Mondial - Grupo MK", "Local": "Araçariguama", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 22000.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Mondial - Grupo MK", "Local": "Conceição do Jacuípe", "Modalidade": "Fábrica/CD", "UF": "BA", "Regiao": "Nordeste", "Area_m2": 206000.0, "lat": -12.97, "lng": -41.65}, {"Fornecedor": "Mondial - Grupo MK", "Local": "Cruz das Almas", "Modalidade": "Fábrica", "UF": "BA", "Regiao": "Nordeste", "Area_m2": 200000.0, "lat": -12.97, "lng": -41.65}, {"Fornecedor": "Mondial - Grupo MK", "Local": "Manaus", "Modalidade": "Fábrica", "UF": "AM", "Regiao": "Norte", "Area_m2": 48000.0, "lat": -4.79, "lng": -65.0}, {"Fornecedor": "Vonder - Grupo OVD", "Local": "Curitiba", "Modalidade": "CD", "UF": "PR", "Regiao": "Sul", "Area_m2": 31000.0, "lat": -24.89, "lng": -51.55}, {"Fornecedor": "Vonder - Grupo OVD", "Local": "Itajaí", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 16000.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Vonder - Grupo OVD", "Local": "Jundiaí", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 27000.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Vonder - Grupo OVD", "Local": "Novo Hamburgo", "Modalidade": "CD", "UF": "RS", "Regiao": "Sul", "Area_m2": 11000.0, "lat": -29.7, "lng": -53.73}, {"Fornecedor": "Vonder - Grupo OVD", "Local": "Feira de Santana", "Modalidade": "CD", "UF": "BA", "Regiao": "Nordeste", "Area_m2": 16500.0, "lat": -12.97, "lng": -41.65}, {"Fornecedor": "Vonder - Grupo OVD", "Local": "Ap. de Goiania", "Modalidade": "CD", "UF": "GO", "Regiao": "Centro Oeste", "Area_m2": 16000.0, "lat": -16.41, "lng": -49.39}, {"Fornecedor": "Vonder - Grupo OVD", "Local": "Betim", "Modalidade": "CD", "UF": "MG", "Regiao": "Sudeste", "Area_m2": 20000.0, "lat": -18.1, "lng": -44.38}, {"Fornecedor": "Vonder - Grupo OVD", "Local": "Cabo de Sto Agostinho", "Modalidade": "CD", "UF": "PE", "Regiao": "Nordeste", "Area_m2": 18000.0, "lat": -8.47, "lng": -37.04}, {"Fornecedor": "Leveros", "Local": "Conde", "Modalidade": "CD", "UF": "PB", "Regiao": "Nordeste", "Area_m2": 4528.0, "lat": -7.24, "lng": -36.78}, {"Fornecedor": "Leveros", "Local": "Vila Velha", "Modalidade": "CD", "UF": "ES", "Regiao": "Sudeste", "Area_m2": 12000.0, "lat": -19.49, "lng": -40.32}, {"Fornecedor": "Leveros", "Local": "Araquari", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 4000.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Dufrio", "Local": "Curitiba", "Modalidade": "CD", "UF": "PR", "Regiao": "Sul", "Area_m2": 0.0, "lat": -24.89, "lng": -51.55}, {"Fornecedor": "Dufrio", "Local": "Guarulhos", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Dufrio", "Local": "Vila Velha", "Modalidade": "CD", "UF": "ES", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -19.49, "lng": -40.32}, {"Fornecedor": "Dufrio", "Local": "Palmas", "Modalidade": "CD", "UF": "TO", "Regiao": "Norte", "Area_m2": 0.0, "lat": -10.25, "lng": -48.25}, {"Fornecedor": "Dufrio", "Local": "Conde", "Modalidade": "CD", "UF": "PB", "Regiao": "Nordeste", "Area_m2": 0.0, "lat": -7.24, "lng": -36.78}, {"Fornecedor": "Frigelar", "Local": "Simões e Filho", "Modalidade": "CD", "UF": "BA", "Regiao": "Nordeste", "Area_m2": 0.0, "lat": -12.97, "lng": -41.65}, {"Fornecedor": "Frigelar", "Local": "Vila Velha", "Modalidade": "CD", "UF": "ES", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -19.49, "lng": -40.32}, {"Fornecedor": "Frigelar", "Local": "Cuiabá", "Modalidade": "CD", "UF": "MT", "Regiao": "Centro Oeste", "Area_m2": 0.0, "lat": -13.05, "lng": -55.91}, {"Fornecedor": "Frigelar", "Local": "Extrema", "Modalidade": "CD", "UF": "MG", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -18.1, "lng": -44.38}, {"Fornecedor": "Frigelar", "Local": "Curitiba", "Modalidade": "CD", "UF": "PR", "Regiao": "Sul", "Area_m2": 0.0, "lat": -24.89, "lng": -51.55}, {"Fornecedor": "Frigelar", "Local": "Cachoeirinha", "Modalidade": "CD", "UF": "RS", "Regiao": "Sul", "Area_m2": 0.0, "lat": -29.7, "lng": -53.73}, {"Fornecedor": "Frigelar", "Local": "Garuva", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Frigelar", "Local": "Navegantes", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Frigelar", "Local": "Osasco", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Frigelar", "Local": "Cajamar", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Tramontina", "Local": "Belém", "Modalidade": "Fábrica", "UF": "PA", "Regiao": "Norte", "Area_m2": 42000.0, "lat": -4.96, "lng": -52.33}, {"Fornecedor": "Tramontina", "Local": "Carlos Barbosa", "Modalidade": "Fábrica", "UF": "RS", "Regiao": "Sul", "Area_m2": 323000.0, "lat": -29.7, "lng": -53.73}, {"Fornecedor": "Tramontina", "Local": "Recife", "Modalidade": "Fábrica", "UF": "PE", "Regiao": "Nordeste", "Area_m2": 95000.0, "lat": -8.47, "lng": -37.04}, {"Fornecedor": "Tramontina", "Local": "Carlos Barbosa", "Modalidade": "Fábrica", "UF": "RS", "Regiao": "Sul", "Area_m2": 43000.0, "lat": -29.7, "lng": -53.73}, {"Fornecedor": "Tramontina", "Local": "Farroupilha", "Modalidade": "Fábrica", "UF": "RS", "Regiao": "Sul", "Area_m2": 104000.0, "lat": -29.7, "lng": -53.73}, {"Fornecedor": "Tramontina", "Local": "Garibaldi", "Modalidade": "Fábrica", "UF": "RS", "Regiao": "Sul", "Area_m2": 102000.0, "lat": -29.7, "lng": -53.73}, {"Fornecedor": "Tramontina", "Local": "Carlos Barbosa", "Modalidade": "Fábrica", "UF": "RS", "Regiao": "Sul", "Area_m2": 107087.62, "lat": -29.7, "lng": -53.73}, {"Fornecedor": "Tramontina", "Local": "Carlos Barbosa", "Modalidade": "Fábrica", "UF": "RS", "Regiao": "Sul", "Area_m2": 53000.0, "lat": -29.7, "lng": -53.73}, {"Fornecedor": "Intelbras", "Local": "Manaus", "Modalidade": "CD", "UF": "AM", "Regiao": "Norte", "Area_m2": 0.0, "lat": -4.79, "lng": -65.0}, {"Fornecedor": "Intelbras", "Local": "São José", "Modalidade": "Fábrica", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Intelbras", "Local": "São José", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Intelbras", "Local": "Tubarão", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Intelbras", "Local": "Santa Rita do Sapucaí", "Modalidade": "CD", "UF": "MG", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -18.1, "lng": -44.38}, {"Fornecedor": "Intelbras", "Local": "Jaboatão dos Guararapes", "Modalidade": "CD", "UF": "PE", "Regiao": "Nordeste", "Area_m2": 0.0, "lat": -8.47, "lng": -37.04}, {"Fornecedor": "Midea", "Local": "Extrema", "Modalidade": "CD", "UF": "MG", "Regiao": "Sudeste", "Area_m2": 25000.0, "lat": -18.1, "lng": -44.38}, {"Fornecedor": "Midea", "Local": "Pouso Alegre", "Modalidade": "Fábrica", "UF": "MG", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -18.1, "lng": -44.38}, {"Fornecedor": "Midea", "Local": "Manaus", "Modalidade": "Fábrica/CD", "UF": "AM", "Regiao": "Norte", "Area_m2": 0.0, "lat": -4.79, "lng": -65.0}, {"Fornecedor": "Midea", "Local": "Resende", "Modalidade": "CD", "UF": "RJ", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.38, "lng": -42.59}, {"Fornecedor": "Midea", "Local": "Joinville", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Midea", "Local": "Canoas", "Modalidade": "Fábrica/CD", "UF": "RS", "Regiao": "Sul", "Area_m2": 0.0, "lat": -29.7, "lng": -53.73}, {"Fornecedor": "WEG", "Local": "Manaus", "Modalidade": "Fábrica", "UF": "AM", "Regiao": "Norte", "Area_m2": 0.0, "lat": -4.79, "lng": -65.0}, {"Fornecedor": "WEG", "Local": "Espirito Santo", "Modalidade": "Fábrica", "UF": "ES", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -19.49, "lng": -40.32}, {"Fornecedor": "WEG", "Local": "Betim", "Modalidade": "Fábrica", "UF": "MG", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -18.1, "lng": -44.38}, {"Fornecedor": "WEG", "Local": "Cabo de Sto Agostinho", "Modalidade": "CD", "UF": "PE", "Regiao": "Nordeste", "Area_m2": 0.0, "lat": -8.47, "lng": -37.04}, {"Fornecedor": "WEG", "Local": "Bento Gonçalves", "Modalidade": "Fábrica", "UF": "RS", "Regiao": "Sul", "Area_m2": 0.0, "lat": -29.7, "lng": -53.73}, {"Fornecedor": "WEG", "Local": "Gravataí", "Modalidade": "Fábrica", "UF": "RS", "Regiao": "Sul", "Area_m2": 0.0, "lat": -29.7, "lng": -53.73}, {"Fornecedor": "WEG", "Local": "Jaraguá do Sul", "Modalidade": "Fábrica", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "WEG", "Local": "Guaramirim", "Modalidade": "Fábrica", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "WEG", "Local": "Blumenau", "Modalidade": "Fábrica", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "WEG", "Local": "Itajaí", "Modalidade": "Fábrica", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "WEG", "Local": "São Bernardo do Campo", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "WEG", "Local": "Mauá", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "WEG", "Local": "Monte Alto", "Modalidade": "Fábrica", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "WEG", "Local": "Sertãozinho", "Modalidade": "Fábrica", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Philips", "Local": "Recife", "Modalidade": "CD", "UF": "PE", "Regiao": "Nordeste", "Area_m2": 0.0, "lat": -8.47, "lng": -37.04}, {"Fornecedor": "Philips", "Local": "Varginha", "Modalidade": "CD", "UF": "MG", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -18.1, "lng": -44.38}, {"Fornecedor": "Philips", "Local": "Barueri", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Cantu", "Local": "Serra", "Modalidade": "CD", "UF": "ES", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -19.49, "lng": -40.32}, {"Fornecedor": "Cantu", "Local": "Contagem", "Modalidade": "CD", "UF": "MG", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -18.1, "lng": -44.38}, {"Fornecedor": "Cantu", "Local": "Jaboatão dos Guararapes", "Modalidade": "CD", "UF": "PE", "Regiao": "Nordeste", "Area_m2": 0.0, "lat": -8.47, "lng": -37.04}, {"Fornecedor": "Cantu", "Local": "Itajaí", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Cantu", "Local": "Barueri", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Cantu", "Local": "Lages", "Modalidade": "Parque Logístico", "UF": "SC", "Regiao": "Sul", "Area_m2": 12000.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Britânia", "Local": "Curitiba", "Modalidade": "CD", "UF": "PR", "Regiao": "Sul", "Area_m2": 0.0, "lat": -24.89, "lng": -51.55}, {"Fornecedor": "Britânia", "Local": "Maringá", "Modalidade": "CD", "UF": "PR", "Regiao": "Sul", "Area_m2": 0.0, "lat": -24.89, "lng": -51.55}, {"Fornecedor": "Britânia", "Local": "Joinville", "Modalidade": "Fábrica/CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Britânia", "Local": "São Paulo", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Britânia", "Local": "Linhares", "Modalidade": "Fábrica/CD", "UF": "ES", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -19.49, "lng": -40.32}, {"Fornecedor": "Elgin", "Local": "Manaus", "Modalidade": "Fábrica/CD", "UF": "AM", "Regiao": "Norte", "Area_m2": 21000.0, "lat": -4.79, "lng": -65.0}, {"Fornecedor": "Elgin", "Local": "Mogi", "Modalidade": "Fábrica/CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 42000.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Elgin", "Local": "Jundiaí", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 23000.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Elgin", "Local": "Itajaí", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 14000.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Elgin", "Local": "Joinville", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 37800.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Elgin", "Local": "Cabo de Santo Agostinho", "Modalidade": "CD", "UF": "PE", "Regiao": "Nordeste", "Area_m2": 10000.0, "lat": -8.47, "lng": -37.04}, {"Fornecedor": "Avant/Grupo WDF", "Local": "Joinville", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Soprano", "Local": "Farroupilha", "Modalidade": "Fábrica/CD", "UF": "RS", "Regiao": "Sul", "Area_m2": 0.0, "lat": -29.7, "lng": -53.73}, {"Fornecedor": "Soprano", "Local": "Caxias do Sul", "Modalidade": "Fábrica/CD", "UF": "RS", "Regiao": "Sul", "Area_m2": 0.0, "lat": -29.7, "lng": -53.73}, {"Fornecedor": "Soprano", "Local": "Campo Grande", "Modalidade": "CD", "UF": "MS", "Regiao": "Centro Oeste", "Area_m2": 0.0, "lat": -20.51, "lng": -54.54}, {"Fornecedor": "Duracel", "Local": "Extrema", "Modalidade": "CD", "UF": "MG", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -18.1, "lng": -44.38}, {"Fornecedor": "Duracel", "Local": "Guarulhos", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Panasonic", "Local": "Manaus", "Modalidade": "Fábrica", "UF": "AM", "Regiao": "Norte", "Area_m2": 37541.0, "lat": -4.79, "lng": -65.0}, {"Fornecedor": "Panasonic", "Local": "São José Dos Campos", "Modalidade": "Fábrica", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 25000.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Panasonic", "Local": "Extrema", "Modalidade": "Fábrica", "UF": "MG", "Regiao": "Sudeste", "Area_m2": 179000.0, "lat": -18.1, "lng": -44.38}, {"Fornecedor": "Bic", "Local": "Manaus", "Modalidade": "Fábrica/CD", "UF": "AM", "Regiao": "Norte", "Area_m2": 0.0, "lat": -4.79, "lng": -65.0}, {"Fornecedor": "Bic", "Local": "Mauá", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Steck", "Local": "Guararema", "Modalidade": "Fábrica", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Steck", "Local": "Manaus", "Modalidade": "Fábrica", "UF": "AM", "Regiao": "Norte", "Area_m2": 0.0, "lat": -4.79, "lng": -65.0}, {"Fornecedor": "Steck", "Local": "Arujá", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}, {"Fornecedor": "Blumenau", "Local": "Blumenau", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Blumenau", "Local": "Passo Manso", "Modalidade": "Fábrica/CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Taschibra", "Local": "Indaial", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "G-Light", "Local": "Feira de Santana", "Modalidade": "CD", "UF": "BA", "Regiao": "Nordeste", "Area_m2": 0.0, "lat": -12.97, "lng": -41.65}, {"Fornecedor": "G-Light", "Local": "Blumenau", "Modalidade": "CD", "UF": "SC", "Regiao": "Sul", "Area_m2": 0.0, "lat": -27.23, "lng": -50.59}, {"Fornecedor": "Nitrolux", "Local": "Recife", "Modalidade": "CD", "UF": "PE", "Regiao": "Nordeste", "Area_m2": 0.0, "lat": -8.47, "lng": -37.04}, {"Fornecedor": "Nitrolux", "Local": "Camaçari", "Modalidade": "CD", "UF": "BA", "Regiao": "Nordeste", "Area_m2": 0.0, "lat": -12.97, "lng": -41.65}, {"Fornecedor": "Nitrolux", "Local": "Guarulhos", "Modalidade": "CD", "UF": "SP", "Regiao": "Sudeste", "Area_m2": 0.0, "lat": -22.19, "lng": -48.8}];
+
+    // Popular combos
+    const setOpts = (id, values) => {
+      const s = document.getElementById(id);
+      [...new Set(values.filter(v => v && v.trim()))].sort().forEach(v => {
+        const o = document.createElement('option'); o.value = v; o.textContent = v; s.appendChild(o);
+      });
+    };
+    setOpts('selRegiao', SITES.map(x => x.Regiao));
+    setOpts('selUF', SITES.map(x => x.UF));
+    setOpts('selModalidade', SITES.map(x => x.Modalidade));
+
+    // Inicializa mapa
+    const map = L.map('map').setView([-14.2350, -51.9253], 4); // Brasil
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let markers = [];
+    function clearMarkers(){ markers.forEach(m => map.removeLayer(m)); markers = []; }
+
+    function applyFilters(){
+      clearMarkers();
+      const showElgin = document.getElementById('chkElgin').checked;
+      const showOutros = document.getElementById('chkOutros').checked;
+      const r = document.getElementById('selRegiao').value;
+      const uf = document.getElementById('selUF').value;
+      const mod = document.getElementById('selModalidade').value;
+
+      SITES.filter(s => {
+        const isElgin = (s.Fornecedor === 'Elgin');
+        if (isElgin && !showElgin) return false;
+        if (!isElgin && !showOutros) return false;
+        if (r && s.Regiao !== r) return false;
+        if (uf && s.UF !== uf) return false;
+        if (mod && s.Modalidade !== mod) return false;
+        return true;
+      }).forEach(s => {
+        const isElgin = (s.Fornecedor === 'Elgin');
+        const color = isElgin ? getComputedStyle(document.documentElement).getPropertyValue('--accent-elgin').trim() : getComputedStyle(document.documentElement).getPropertyValue('--accent-outros').trim();
+        const marker = L.circleMarker([s.lat, s.lng], {radius: 6, color, fillColor: color, fillOpacity: 0.6})
+          .bindPopup(`<b>${s.Fornecedor}</b><br>${s.Local} / ${s.UF}<br>${s.Modalidade}<br>Área: ${s.Area_m2.toLocaleString('pt-BR')} m²`)
+          .addTo(map);
+        markers.push(marker);
+      });
+    }
+
+    document.getElementById('chkElgin').addEventListener('change', applyFilters);
+    document.getElementById('chkOutros').addEventListener('change', applyFilters);
+    document.getElementById('selRegiao').addEventListener('change', applyFilters);
+    document.getElementById('selUF').addEventListener('change', applyFilters);
+    document.getElementById('selModalidade').addEventListener('change', applyFilters);
+    document.getElementById('btnReset').addEventListener('click', () => {
+      document.getElementById('chkElgin').checked = true;
+      document.getElementById('chkOutros').checked = true;
+      document.getElementById('selRegiao').value = '';
+      document.getElementById('selUF').value = '';
+      document.getElementById('selModalidade').value = '';
+      applyFilters();
+    });
+
+    applyFilters();
+  </script>
+
+  <p style='margin-top:12px'>Nota: como a planilha não contém coordenadas, os marcadores são posicionados no centro aproximado da UF correspondente.</p>
 </body>
 </html>
