@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Estudo de Expansão Elgin</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: #f5f7fb; color: #333; }
+    .header { display:flex; align-items:center; gap:20px; padding:16px 24px; background: #fff; border-bottom: 1px solid #e5e9f2; }
+    .logo svg { height:36px; }
+    .title { font-size: 28px; color: #2F3B52; }
+    .container { display:flex; }
+    .sidebar { width: 280px; background: #fff; border-right: 1px solid #e5e9f2; padding: 16px; overflow-y: auto; height: calc(100vh - 80px); box-sizing: border-box; }
+    .content { flex:1; padding:16px; height: calc(100vh - 80px); overflow-y: auto; box-sizing: border-box; }
+    
+    .legend { display:flex; gap:16px; align-items:center; padding:8px 0 16px; }
+    .legend .dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; }
+    
+    /* Estilos dos Filtros */
+    .filters label { display: block; margin-top: 10px; font-weight: 600; font-size: 13px; color: #6b7a90; margin-bottom: 4px; }
+    .filters select { width:100%; padding:8px; border-radius:8px; border:1px solid #ccc; background: #fff; }
+    
+    /* Estilo específico para o multi-select ficar decente */
+    .filters select[multiple] { height: 120px; overflow-y: auto; background-color: #fafafa; }
+    .filters select[multiple] option { padding: 4px; border-bottom: 1px solid #eee; }
+    .filters select[multiple] option:checked { background-color: #1A76B7 linear-gradient(0deg, #1A76B7 0%, #1A76B7 100%); color: #fff; }
+    
+    .filter-tip { font-size: 11px; color: #888; margin-bottom: 8px; font-style: italic; display: block; }
+
+    .reset-btn { margin-top:16px; background:#F39C12; color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; width:100%; font-weight: bold; }
+    .reset-btn:hover { background: #e67e22; }
+
+    .tabs { display:flex; gap:8px; margin-bottom:10px; }
+    .tab-btn { background:#e6f3f8; color:#2F3B52; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; }
+    .tab-btn.active { background:#1A76B7; color:#fff; }
+    
+    #map { height: 540px; width: 100%; border-radius:12px; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+    .table { background: #fff; border-radius:12px; padding:12px; box-shadow: 0 2px 6px rgba(0,0,0,.06); margin-top:12px; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:8px 10px; border-bottom:1px solid #eef2f7; font-size:14px; }
+    th { background:#f6fbfe; color:#2F3B52; text-align:left; }
+    .kpis { display:grid; grid-template-columns: repeat(2, minmax(200px, 1fr)); gap:12px; margin:12px 0; }
+    .card { background: #fff; border-radius:12px; padding:16px; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+    .card h3 { margin:0; font-size:13px; color:#6b7a90; }
+    .card .value { font-size:26px; color:#2F3B52; font-weight:700; }
+    .hidden { display:none; }
+    .attribution-note { font-size:12px; color:#6b7a90; margin-top:6px; }
+    
+    /* Z-Index para garantir visibilidade */
+    .custom-marker { z-index: 1000; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">
+      <svg viewBox="0 0 200 50" xmlns="http://www.w3.org/2000/svg">
+        <text x="0" y="36" fill="#1A76B7" font-size="36" font-family="Segoe UI">ELGIN</text>
+      </svg>
+    </div>
+    <div class="title">Estudo de Expansão Elgin</div>
+  </div>
+
+  <div class="container">
+    <aside class="sidebar">
+      <div class="tabs">
+        <button class="tab-btn active" id="tabDashboard">Início</button>
+        <button class="tab-btn" id="tabBase">Base de dados</button>
+      </div>
+      <h2>Filtros</h2>
+      <div class="filters">
+        <label>Fornecedor (Múltipla escolha)</label>
+        <span class="filter-tip">Segure Ctrl para selecionar vários</span>
+        <select id="fornecedorFilter" multiple size="5"></select>
+
+        <label>Região</label>
+        <select id="regiaoFilter"><option value="">Todas</option></select>
+        
+        <label>UF</label>
+        <select id="ufFilter"><option value="">Todas</option></select>
+        
+        <label>Modalidade</label>
+        <select id="modalidadeFilter"><option value="">Todas</option></select>
+      </div>
+      <button class="reset-btn" onclick="resetFilters()">Resetar filtros</button>
+      <div class="legend" style="margin-top:20px;">
+        <div><span class="dot" style="background:#1A76B7"></span><span>Elgin</span></div>
+        <div><span class="dot" style="background:#8B0000"></span><span>Outros fornecedores</span></div>
+      </div>
+      <div class="attribution-note">Mapa por Leaflet + OpenStreetMap. © OpenStreetMap contributors.</div>
+    </aside>
+
+    <main class="content">
+      <div id="viewDashboard">
+        <div id="map"></div>
+        <div class="kpis">
+          <div class="card"><h3>Fábricas</h3><div class="value" id="kpiFabrica">0</div></div>
+          <div class="card"><h3>Total de Fornecedores</h3><div class="value" id="kpiFornecedores">0</div></div>
+        </div>
+        <div class="table card">
+          <table>
+            <thead>
+              <tr>
+                <th>Fornecedor</th>
+                <th>Região</th>
+                <th>Qtd Sites</th>
+                <th>Área Total (m²)</th>
+              </tr>
+            </thead>
+            <tbody id="summaryBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="viewBase" class="hidden">
+        <div class="table card">
+          <table>
+            <thead id="baseHead"></thead>
+            <tbody id="baseBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    const DATA = [
+      {"Fornecedor": "Mondial - Grupo MK", "Locais": "Araçariguama", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 22000, "M.O própria/Terceira": "Própria", "Fontes": "https://infosaj.com.br/vitor-azevedo-articula-investimentos-para-implantacao-da-fabrica-da-mondial-em-cruz-das-almas/", "Código IBGE": 3502754, "Latitude": -23.4367, "Longitude": -47.0614},
+      {"Fornecedor": "Mondial - Grupo MK", "Locais": "Conceição do Jacuípe", "Modalidade": "Fábrica/CD", "UF": "BA", "Região": "Nordeste", "M² Área Construída": 206000, "M.O própria/Terceira": "Própria", "Fontes": "https://grupomk.com/", "Código IBGE": 2908502, "Latitude": -12.3164, "Longitude": -38.7686},
+      {"Fornecedor": "Mondial - Grupo MK", "Locais": "Cruz das Almas", "Modalidade": "Fábrica", "UF": "BA", "Região": "Nordeste", "M² Área Construída": 200000, "M.O própria/Terceira": "Própria", "Fontes": "https://www.terra.com.br/economia/grupo-mk-dono-da-mondial-e-da-aiwa-vai-investir-r-707-milhoes-em-terceira-fabrica-no-pais,d8d7d0d946fec3fce5d2f4664959435a1jl5h3r1.html", "Código IBGE": 2909807, "Latitude": -12.6675, "Longitude": -39.1008},
+      {"Fornecedor": "Mondial - Grupo MK", "Locais": "Manaus", "Modalidade": "Fábrica", "UF": "AM", "Região": "Norte", "M² Área Construída": 48000, "M.O própria/Terceira": "Própria", "Fontes": "Instagram/Linkedin/Site Notícias", "Código IBGE": 1302603, "Latitude": -3.119, "Longitude": -60.0217},
+      {"Fornecedor": "Vonder - Grupo OVD", "Locais": "Curitiba", "Modalidade": "CD", "UF": "PR", "Região": "Sul", "M² Área Construída": 31000, "M.O própria/Terceira": "Própria", "Fontes": "site empresa OVD/Coordenador de Logística OVD", "Código IBGE": 4106902, "Latitude": -25.4284, "Longitude": -49.2733},
+      {"Fornecedor": "Vonder - Grupo OVD", "Locais": "Itajaí", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 16000, "M.O própria/Terceira": "Própria", "Fontes": "site empresa OVD/Coordenador de Logística OVD", "Código IBGE": 4208203, "Latitude": -26.9101, "Longitude": -48.6705},
+      {"Fornecedor": "Vonder - Grupo OVD", "Locais": "Jundiaí", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 27000, "M.O própria/Terceira": "Própria", "Fontes": "site empresa OVD/Coordenador de Logística OVD", "Código IBGE": 3525904, "Latitude": -23.1857, "Longitude": -46.8978},
+      {"Fornecedor": "Vonder - Grupo OVD", "Locais": "Novo Hamburgo", "Modalidade": "CD", "UF": "RS", "Região": "Sul", "M² Área Construída": 11000, "M.O própria/Terceira": "Própria", "Fontes": "site empresa OVD/Coordenador de Logística OVD", "Código IBGE": 4313409, "Latitude": -29.6886, "Longitude": -51.1328},
+      {"Fornecedor": "Vonder - Grupo OVD", "Locais": "Feira de Santana", "Modalidade": "CD", "UF": "BA", "Região": "Nordeste", "M² Área Construída": 16500, "M.O própria/Terceira": "Própria", "Fontes": "site empresa OVD/Coordenador de Logística OVD", "Código IBGE": 2910805, "Latitude": -12.2664, "Longitude": -38.9663},
+      {"Fornecedor": "Vonder - Grupo OVD", "Locais": "Aparecida de Goiânia", "Modalidade": "CD", "UF": "GO", "Região": "Centro Oeste", "M² Área Construída": 16000, "M.O própria/Terceira": "Própria", "Fontes": "site empresa OVD/Coordenador de Logística OVD", "Código IBGE": 5201405, "Latitude": -16.8198, "Longitude": -49.2469},
+      {"Fornecedor": "Vonder - Grupo OVD", "Locais": "Betim", "Modalidade": "CD", "UF": "MG", "Região": "Sudeste", "M² Área Construída": 20000, "M.O própria/Terceira": "Própria", "Fontes": "site empresa OVD/Coordenador de Logística OVD", "Código IBGE": 3106705, "Latitude": -19.9678, "Longitude": -44.1985},
+      {"Fornecedor": "Vonder - Grupo OVD", "Locais": "Cabo de Santo Agostinho", "Modalidade": "CD", "UF": "PE", "Região": "Nordeste", "M² Área Construída": 18000, "M.O própria/Terceira": "Própria", "Fontes": "site empresa OVD/Coordenador de Logística OVD", "Código IBGE": 2602902, "Latitude": -8.2822, "Longitude": -35.0253},
+      {"Fornecedor": "Leveros", "Locais": "Conde, Bahia", "Modalidade": "CD", "UF": "PB", "Região": "Nordeste", "M² Área Construída": 4528, "M.O própria/Terceira": "Própria", "Fontes": "Instagram/Facebook/Linkedin/Comercial Elgin", "Código IBGE": 2504600, "Latitude": -7.2592, "Longitude": -34.9076},
+      {"Fornecedor": "Leveros", "Locais": "Vila Velha", "Modalidade": "CD", "UF": "ES", "Região": "Sudeste", "M² Área Construída": 12000, "M.O própria/Terceira": "Própria", "Fontes": "Instagram/Facebook/Linkedin/Comercial Elgin", "Código IBGE": 3205200, "Latitude": -20.3297, "Longitude": -40.2925},
+      {"Fornecedor": "Leveros", "Locais": "Araquari", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 4000, "M.O própria/Terceira": "Própria", "Fontes": "Instagram/Facebook/Linkedin/Comercial Elgin", "Código IBGE": 4201307, "Latitude": -26.3754, "Longitude": -48.7188},
+      {"Fornecedor": "Dufrio", "Locais": "Curitiba", "Modalidade": "CD", "UF": "PR", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "Própria", "Fontes": "Institucional - Comercial Elgin/Google/Instagram", "Código IBGE": 4106902, "Latitude": -25.4284, "Longitude": -49.2733},
+      {"Fornecedor": "Dufrio", "Locais": "Guarulhos", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "Própria", "Fontes": "Institucional - Comercial Elgin/Google/Youtube/Instagram", "Código IBGE": 3518800, "Latitude": -23.4543, "Longitude": -46.5337},
+      {"Fornecedor": "Dufrio", "Locais": "Vila Velha", "Modalidade": "CD", "UF": "ES", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "Própria", "Fontes": "Institucional - Comercial Elgin/Google/Instagram", "Código IBGE": 3205200, "Latitude": -20.3297, "Longitude": -40.2925},
+      {"Fornecedor": "Dufrio", "Locais": "Palmas, Tocantins", "Modalidade": "CD", "UF": "TO", "Região": "Norte", "M² Área Construída": 0, "M.O própria/Terceira": "Própria", "Fontes": "Institucional - Comercial Elgin/Google/Youtube/Instagram", "Código IBGE": 1721000, "Latitude": -10.2491, "Longitude": -48.3243},
+      {"Fornecedor": "Dufrio", "Locais": "Conde, Bahia", "Modalidade": "CD", "UF": "PB", "Região": "Nordeste", "M² Área Construída": 0, "M.O própria/Terceira": "Própria", "Fontes": "Institucional - Comercial Elgin/Google/Instagram", "Código IBGE": 2504600, "Latitude": -7.2592, "Longitude": -34.9076},
+      {"Fornecedor": "Frigelar", "Locais": "Simões Filho", "Modalidade": "CD", "UF": "BA", "Região": "Nordeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.frigelar.com.br/nossas-lojas", "Código IBGE": 2930704, "Latitude": -12.7866, "Longitude": -38.4026},
+      {"Fornecedor": "Frigelar", "Locais": "Vila Velha", "Modalidade": "CD", "UF": "ES", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.frigelar.com.br/nossas-lojas", "Código IBGE": 3205200, "Latitude": -20.3297, "Longitude": -40.2925},
+      {"Fornecedor": "Frigelar", "Locais": "Cuiabá", "Modalidade": "CD", "UF": "MT", "Região": "Centro Oeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.frigelar.com.br/nossas-lojas", "Código IBGE": 5103403, "Latitude": -15.6014, "Longitude": -56.0979},
+      {"Fornecedor": "Frigelar", "Locais": "Extrema, Minas Gerais", "Modalidade": "CD", "UF": "MG", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.frigelar.com.br/nossas-lojas", "Código IBGE": 3125101, "Latitude": -22.8545, "Longitude": -46.317},
+      {"Fornecedor": "Frigelar", "Locais": "Curitiba", "Modalidade": "CD", "UF": "PR", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.frigelar.com.br/nossas-lojas", "Código IBGE": 4106902, "Latitude": -25.4284, "Longitude": -49.2733},
+      {"Fornecedor": "Frigelar", "Locais": "Cachoeirinha", "Modalidade": "CD", "UF": "RS", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.frigelar.com.br/nossas-lojas", "Código IBGE": 4303103, "Latitude": -29.9472, "Longitude": -51.1016},
+      {"Fornecedor": "Frigelar", "Locais": "Garuva", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.frigelar.com.br/nossas-lojas", "Código IBGE": 4205803, "Latitude": -26.0266, "Longitude": -48.852},
+      {"Fornecedor": "Frigelar", "Locais": "Navegantes", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.frigelar.com.br/nossas-lojas", "Código IBGE": 4211306, "Latitude": -26.8946, "Longitude": -48.6546},
+      {"Fornecedor": "Frigelar", "Locais": "Osasco", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.frigelar.com.br/nossas-lojas", "Código IBGE": 3534401, "Latitude": -23.5324, "Longitude": -46.7916},
+      {"Fornecedor": "Frigelar", "Locais": "Cajamar, São Paulo", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.frigelar.com.br/nossas-lojas", "Código IBGE": 3509205, "Latitude": -23.3561, "Longitude": -46.8764},
+      {"Fornecedor": "Tramontina", "Locais": "Belém", "Modalidade": "Fábrica", "UF": "PA", "Região": "Norte", "M² Área Construída": 42000, "M.O própria/Terceira": "-", "Fontes": "Nossas Fábricas | Tramontina / Linkedin", "Código IBGE": 1501402, "Latitude": -1.4558, "Longitude": -48.4902},
+      {"Fornecedor": "Tramontina", "Locais": "Carlos Barbosa", "Modalidade": "Fábrica", "UF": "RS", "Região": "Sul", "M² Área Construída": 323000, "M.O própria/Terceira": "-", "Fontes": "Nossas Fábricas | Tramontina / Linkedin", "Código IBGE": 4304804, "Latitude": -29.2969, "Longitude": -51.5026},
+      {"Fornecedor": "Tramontina", "Locais": "Recife", "Modalidade": "Fábrica", "UF": "PE", "Região": "Nordeste", "M² Área Construída": 95000, "M.O própria/Terceira": "-", "Fontes": "Nossas Fábricas | Tramontina / Linkedin", "Código IBGE": 2611606, "Latitude": -8.0476, "Longitude": -34.877},
+      {"Fornecedor": "Tramontina", "Locais": "Carlos Barbosa", "Modalidade": "Fábrica", "UF": "RS", "Região": "Sul", "M² Área Construída": 43000, "M.O própria/Terceira": "-", "Fontes": "Nossas Fábricas | Tramontina / Linkedin", "Código IBGE": 4304804, "Latitude": -29.2969, "Longitude": -51.5026},
+      {"Fornecedor": "Tramontina", "Locais": "Farroupilha", "Modalidade": "Fábrica", "UF": "RS", "Região": "Sul", "M² Área Construída": 104000, "M.O própria/Terceira": "-", "Fontes": "Nossas Fábricas | Tramontina / Linkedin", "Código IBGE": 4307906, "Latitude": -29.2236, "Longitude": -51.3478},
+      {"Fornecedor": "Tramontina", "Locais": "Garibaldi, Rio Grande do Sul", "Modalidade": "Fábrica", "UF": "RS", "Região": "Sul", "M² Área Construída": 102000, "M.O própria/Terceira": "-", "Fontes": "Nossas Fábricas | Tramontina / Linkedin", "Código IBGE": 4308607, "Latitude": -29.259, "Longitude": -51.5333},
+      {"Fornecedor": "Tramontina", "Locais": "Carlos Barbosa", "Modalidade": "Fábrica", "UF": "RS", "Região": "Sul", "M² Área Construída": 107087.62, "M.O própria/Terceira": "-", "Fontes": "Nossas Fábricas | Tramontina / Linkedin", "Código IBGE": 4304804, "Latitude": -29.2969, "Longitude": -51.5026},
+      {"Fornecedor": "Tramontina", "Locais": "Carlos Barbosa", "Modalidade": "Fábrica", "UF": "RS", "Região": "Sul", "M² Área Construída": 53000, "M.O própria/Terceira": "-", "Fontes": "Nossas Fábricas | Tramontina / Linkedin", "Código IBGE": 4304804, "Latitude": -29.2969, "Longitude": -51.5026},
+      {"Fornecedor": "Intelbras", "Locais": "Manaus", "Modalidade": "CD", "UF": "AM", "Região": "Norte", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://loja.intelbras.com.br/institucional/sobre-a-intelbras/", "Código IBGE": 1302603, "Latitude": -3.119, "Longitude": -60.0217},
+      {"Fornecedor": "Intelbras", "Locais": "São José do Rio Preto", "Modalidade": "Fábrica", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://loja.intelbras.com.br/institucional/sobre-a-intelbras/", "Código IBGE": 4216602, "Latitude": -27.5969, "Longitude": -48.5495},
+      {"Fornecedor": "Intelbras", "Locais": "São José", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://loja.intelbras.com.br/institucional/sobre-a-intelbras/", "Código IBGE": 4216602, "Latitude": -27.5969, "Longitude": -48.5495},
+      {"Fornecedor": "Intelbras", "Locais": "Tubarão", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://loja.intelbras.com.br/institucional/sobre-a-intelbras/", "Código IBGE": 4218707, "Latitude": -28.4713, "Longitude": -49.0144},
+      {"Fornecedor": "Intelbras", "Locais": "Santa Rita do Sapucaí", "Modalidade": "CD", "UF": "MG", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://loja.intelbras.com.br/institucional/sobre-a-intelbras/", "Código IBGE": 3159605, "Latitude": -22.2511, "Longitude": -45.7031},
+      {"Fornecedor": "Intelbras", "Locais": "Jaboatão dos Guararapes", "Modalidade": "CD", "UF": "PE", "Região": "Nordeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://loja.intelbras.com.br/institucional/sobre-a-intelbras/", "Código IBGE": 2607901, "Latitude": -8.113, "Longitude": -35.015},
+      {"Fornecedor": "Midea", "Locais": "Extrema, Minas Gerais", "Modalidade": "CD", "UF": "MG", "Região": "Sudeste", "M² Área Construída": 25000, "M.O própria/Terceira": "Própria", "Fontes": "https://www.instagram.com/p/DPoYdkPD6Ir/", "Código IBGE": 3125101, "Latitude": -22.8545, "Longitude": -46.317},
+      {"Fornecedor": "Midea", "Locais": "Pouso Alegre", "Modalidade": "Fábrica", "UF": "MG", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://diariodocomercio.com.br/economia/centro-de-distribuicao-midea-carrier-extrema/", "Código IBGE": 3152501, "Latitude": -22.23, "Longitude": -45.9389},
+      {"Fornecedor": "Midea", "Locais": "Manaus", "Modalidade": "Fábrica/CD", "UF": "AM", "Região": "Norte", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://diariodocomercio.com.br/economia/centro-de-distribuicao-midea-carrier-extrema/", "Código IBGE": 1302603, "Latitude": -3.119, "Longitude": -60.0217},
+      {"Fornecedor": "Midea", "Locais": "Extrema, Minas Gerais", "Modalidade": "CD", "UF": "MG", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://diariodocomercio.com.br/economia/centro-de-distribuicao-midea-carrier-extrema/", "Código IBGE": 3125101, "Latitude": -22.8545, "Longitude": -46.317},
+      {"Fornecedor": "Midea", "Locais": "Joinville", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://diariodocomercio.com.br/economia/centro-de-distribuicao-midea-carrier-extrema/", "Código IBGE": 4209102, "Latitude": -26.3044, "Longitude": -48.8487},
+      {"Fornecedor": "Midea", "Locais": "Canoas", "Modalidade": "Fábrica/CD", "UF": "RS", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://diariodocomercio.com.br/economia/centro-de-distribuicao-midea-carrier-extrema/", "Código IBGE": 4304606, "Latitude": -29.9128, "Longitude": -51.1857},
+      {"Fornecedor": "WEG", "Locais": "Manaus", "Modalidade": "Fábrica", "UF": "AM", "Região": "Norte", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.weg.net/institutional/BR/pt/weg-operations", "Código IBGE": 1302603, "Latitude": -3.119, "Longitude": -60.0217},
+      {"Fornecedor": "WEG", "Locais": "Linhares", "Modalidade": "Fábrica", "UF": "ES", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.weg.net/institutional/BR/pt/weg-operations", "Código IBGE": 3203205, "Latitude": -19.3947, "Longitude": -40.0643},
+      {"Fornecedor": "WEG", "Locais": "Betim", "Modalidade": "Fábrica", "UF": "MG", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.otempobetim.com.br/ultimas/2023/7/28/weg-inaugura-centro-de-distribuicao-em-betim-1_3094829", "Código IBGE": 3106705, "Latitude": -19.9678, "Longitude": -44.1985},
+      {"Fornecedor": "WEG", "Locais": "Cabo de Santo Agostinho", "Modalidade": "CD", "UF": "PE", "Região": "Nordeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.weg.net/institutional/BR/pt/weg-operations", "Código IBGE": 2602902, "Latitude": -8.2822, "Longitude": -35.0253},
+      {"Fornecedor": "WEG", "Locais": "Bento Gonçalves, Rio Grande do Sul", "Modalidade": "Fábrica", "UF": "RS", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.weg.net/institutional/BR/pt/weg-operations", "Código IBGE": 4302105, "Latitude": -29.1667, "Longitude": -51.5167},
+      {"Fornecedor": "WEG", "Locais": "Gravataí", "Modalidade": "Fábrica", "UF": "RS", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.weg.net/institutional/BR/pt/weg-operations", "Código IBGE": 4309209, "Latitude": -29.9419, "Longitude": -50.9864},
+      {"Fornecedor": "WEG", "Locais": "Jaraguá do Sul", "Modalidade": "Fábrica", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.weg.net/institutional/BR/pt/weg-operations", "Código IBGE": 4208906, "Latitude": -26.4851, "Longitude": -49.0713},
+      {"Fornecedor": "WEG", "Locais": "Guaramirim", "Modalidade": "Fábrica", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.weg.net/institutional/BR/pt/weg-operations", "Código IBGE": 4206504, "Latitude": -26.4684, "Longitude": -49.0034},
+      {"Fornecedor": "WEG", "Locais": "Blumenau", "Modalidade": "Fábrica", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.weg.net/institutional/BR/pt/weg-operations", "Código IBGE": 4202404, "Latitude": -26.9155, "Longitude": -49.0709},
+      {"Fornecedor": "WEG", "Locais": "Itajaí", "Modalidade": "Fábrica", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.weg.net/institutional/BR/pt/weg-operations", "Código IBGE": 4208203, "Latitude": -26.9101, "Longitude": -48.6705},
+      {"Fornecedor": "WEG", "Locais": "São Bernardo do Campo", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.weg.net/institutional/BR/pt/weg-operations", "Código IBGE": 3548708, "Latitude": -23.6898, "Longitude": -46.5646},
+      {"Fornecedor": "WEG", "Locais": "Mauá", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.weg.net/institutional/BR/pt/weg-operations", "Código IBGE": 3529401, "Latitude": -23.6678, "Longitude": -46.4613},
+      {"Fornecedor": "WEG", "Locais": "Monte Alto, São Paulo", "Modalidade": "Fábrica", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.weg.net/institutional/BR/pt/weg-operations", "Código IBGE": 3531306, "Latitude": -21.2614, "Longitude": -48.4978},
+      {"Fornecedor": "WEG", "Locais": "Sertãozinho", "Modalidade": "Fábrica", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.weg.net/institutional/BR/pt/weg-operations", "Código IBGE": 3551700, "Latitude": -21.1371, "Longitude": -47.9915},
+      {"Fornecedor": "Philips", "Locais": "Recife", "Modalidade": "CD", "UF": "PE", "Região": "Nordeste", "M² Área Construída": 0, "M.O própria/Terceira": "Terceira", "Fontes": "https://www.tecnologistica.com.br/br/noticias/armazenagem/11648/dhl-supply-chain-assume-as-operacoes-dos-produtos-medicos-profissionais-da-philips/", "Código IBGE": 2611606, "Latitude": -8.0476, "Longitude": -34.877},
+      {"Fornecedor": "Philips", "Locais": "Varginha", "Modalidade": "CD", "UF": "MG", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "Terceira", "Fontes": "https://www.tecnologistica.com.br/br/noticias/armazenagem/11648/dhl-supply-chain-assume-as-operacoes-dos-produtos-medicos-profissionais-da-philips/", "Código IBGE": 3170701, "Latitude": -21.5556, "Longitude": -45.4364},
+      {"Fornecedor": "Philips", "Locais": "Barueri", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "Terceira", "Fontes": "https://www.tecnologistica.com.br/br/noticias/armazenagem/11648/dhl-supply-chain-assume-as-operacoes-dos-produtos-medicos-profissionais-da-philips/", "Código IBGE": 3505708, "Latitude": -23.5057, "Longitude": -46.879},
+      {"Fornecedor": "Cantu", "Locais": "Taboão da Serra", "Modalidade": "CD", "UF": "ES", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.cantu.inc/onde-estamos/", "Código IBGE": 3552809, "Latitude": -23.601944444444, "Longitude": -46.752777777778},
+      {"Fornecedor": "Cantu", "Locais": "Contagem", "Modalidade": "CD", "UF": "MG", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.cantu.inc/onde-estamos/", "Código IBGE": 3118601, "Latitude": -19.9318, "Longitude": -44.0539},
+      {"Fornecedor": "Cantu", "Locais": "Jaboatão dos Guararapes", "Modalidade": "CD", "UF": "PE", "Região": "Nordeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.cantu.inc/onde-estamos/", "Código IBGE": 2607901, "Latitude": -8.113, "Longitude": -35.015},
+      {"Fornecedor": "Cantu", "Locais": "Itajaí", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.cantu.inc/onde-estamos/", "Código IBGE": 4208203, "Latitude": -26.9101, "Longitude": -48.6705},
+      {"Fornecedor": "Cantu", "Locais": "Barueri", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.cantu.inc/onde-estamos/", "Código IBGE": 3505708, "Latitude": -23.5057, "Longitude": -46.879},
+      {"Fornecedor": "Cantu", "Locais": "Lages", "Modalidade": "Parque Logístico", "UF": "SC", "Região": "Sul", "M² Área Construída": 12000, "M.O própria/Terceira": "-", "Fontes": "https://mundologistica.com.br/noticias/canto-inaugura-primeiro-parque-logistico-brasil", "Código IBGE": 4209300, "Latitude": -27.8157, "Longitude": -50.326},
+      {"Fornecedor": "Britânia", "Locais": "Curitiba", "Modalidade": "CD", "UF": "PR", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "", "Código IBGE": 4106902, "Latitude": -25.4284, "Longitude": -49.2733},
+      {"Fornecedor": "Britânia", "Locais": "Maringá", "Modalidade": "CD", "UF": "PR", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "", "Código IBGE": 4115200, "Latitude": -23.4200, "Longitude": -51.9333},
+      {"Fornecedor": "Britânia", "Locais": "Joinville", "Modalidade": "Fábrica/CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "", "Código IBGE": 4209102, "Latitude": -26.3044, "Longitude": -48.8487},
+      {"Fornecedor": "Britânia", "Locais": "São Paulo", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "", "Código IBGE": 3550308, "Latitude": -23.5505, "Longitude": -46.6333},
+      {"Fornecedor": "Britânia", "Locais": "Linhares", "Modalidade": "Fábrica/CD", "UF": "ES", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "", "Código IBGE": 3203205, "Latitude": -19.3947, "Longitude": -40.0643},
+      {"Fornecedor": "Elgin", "Locais": "Manaus", "Modalidade": "Fábrica/CD", "UF": "AM", "Região": "Norte", "M² Área Construída": 21000, "M.O própria/Terceira": "-", "Fontes": "", "Código IBGE": 1302603, "Latitude": -3.119, "Longitude": -60.0217},
+      {"Fornecedor": "Elgin", "Locais": "Mogi das Cruzes", "Modalidade": "Fábrica/CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 42000, "M.O própria/Terceira": "-", "Fontes": "", "Código IBGE": 3530605, "Latitude": -23.5203, "Longitude": -46.1854},
+      {"Fornecedor": "Elgin", "Locais": "Jundiaí", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 23000, "M.O própria/Terceira": "-", "Fontes": "", "Código IBGE": 3525904, "Latitude": -23.1857, "Longitude": -46.8978},
+      {"Fornecedor": "Elgin", "Locais": "Itajaí", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 14000, "M.O própria/Terceira": "-", "Fontes": "", "Código IBGE": 4208203, "Latitude": -26.9101, "Longitude": -48.6705},
+      {"Fornecedor": "Elgin", "Locais": "Joinville", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 37800, "M.O própria/Terceira": "-", "Fontes": "", "Código IBGE": 4209102, "Latitude": -26.3044, "Longitude": -48.8487},
+      {"Fornecedor": "Elgin", "Locais": "Cabo de Santo Agostinho", "Modalidade": "CD", "UF": "PE", "Região": "Nordeste", "M² Área Construída": 10000, "M.O própria/Terceira": "-", "Fontes": "", "Código IBGE": 2602902, "Latitude": -8.2822, "Longitude": -35.0253},
+      {"Fornecedor": "Avant/Grupo WDF", "Locais": "Joinville", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://avantlux.com.br/sobre/", "Código IBGE": 4209102, "Latitude": -26.3044, "Longitude": -48.8487},
+      {"Fornecedor": "Soprano", "Locais": "Farroupilha", "Modalidade": "Fábrica/CD", "UF": "RS", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "soprano.com.br/unidades-de-negocio", "Código IBGE": 4307906, "Latitude": -29.2236, "Longitude": -51.3478},
+      {"Fornecedor": "Soprano", "Locais": "Caxias do Sul", "Modalidade": "Fábrica/CD", "UF": "RS", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "soprano.com.br/unidades-de-negocio", "Código IBGE": 4305108, "Latitude": -29.1678, "Longitude": -51.1794},
+      {"Fornecedor": "Soprano", "Locais": "Campo Grande", "Modalidade": "CD", "UF": "MS", "Região": "Centro Oeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "soprano.com.br/unidades-de-negocio", "Código IBGE": 5002704, "Latitude": -20.4697, "Longitude": -54.6201},
+      {"Fornecedor": "Duracel", "Locais": "Extrema, Minas Gerais", "Modalidade": "CD", "UF": "MG", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "Terceira", "Fontes": "", "Código IBGE": 3125101, "Latitude": -22.8545, "Longitude": -46.317},
+      {"Fornecedor": "Duracel", "Locais": "Guarulhos", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "Terceira", "Fontes": "", "Código IBGE": 3518800, "Latitude": -23.4543, "Longitude": -46.5337},
+      {"Fornecedor": "Panasonic", "Locais": "Manaus", "Modalidade": "Fábrica", "UF": "AM", "Região": "Norte", "M² Área Construída": 37541, "M.O própria/Terceira": "-", "Fontes": "https://www.panasonic.com/br/corporate/profile/history-brazil.html", "Código IBGE": 1302603, "Latitude": -3.119, "Longitude": -60.0217},
+      {"Fornecedor": "Panasonic", "Locais": "São José dos Campos", "Modalidade": "Fábrica", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 25000, "M.O própria/Terceira": "-", "Fontes": "https://www.panasonic.com/br/corporate/profile/history-brazil.html", "Código IBGE": 3549904, "Latitude": -23.2237, "Longitude": -45.9009},
+      {"Fornecedor": "Panasonic", "Locais": "Extrema, Minas Gerais", "Modalidade": "Fábrica", "UF": "MG", "Região": "Sudeste", "M² Área Construída": 179000, "M.O própria/Terceira": "-", "Fontes": "https://www.panasonic.com/br/corporate/profile/history-brazil.html", "Código IBGE": 3125101, "Latitude": -22.8545, "Longitude": -46.317},
+      {"Fornecedor": "Bic", "Locais": "Manaus", "Modalidade": "Fábrica/CD", "UF": "AM", "Região": "Norte", "M² Área Construída": 0, "M.O própria/Terceira": "Própria", "Fontes": "https://www.google.com/search?q=centro+de+distribuição+Bic+em+manaus", "Código IBGE": 1302603, "Latitude": -3.119, "Longitude": -60.0217},
+      {"Fornecedor": "Bic", "Locais": "Mauá", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "Própria", "Fontes": "https://www.dismax.com.br/catalogo/catalogo-de-produtos-bic/", "Código IBGE": 3529401, "Latitude": -23.6678, "Longitude": -46.4613},
+      {"Fornecedor": "Steck", "Locais": "Guararema", "Modalidade": "Fábrica", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.steck.com.br/sobre/a-empresa", "Código IBGE": 3518305, "Latitude": -23.4112, "Longitude": -46.0369},
+      {"Fornecedor": "Steck", "Locais": "Manaus", "Modalidade": "Fábrica", "UF": "AM", "Região": "Norte", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.steck.com.br/sobre/a-empresa", "Código IBGE": 1302603, "Latitude": -3.119, "Longitude": -60.0217},
+      {"Fornecedor": "Steck", "Locais": "Arujá", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.steck.com.br/sobre/a-empresa", "Código IBGE": 3503901, "Latitude": -23.3965, "Longitude": -46.3206},
+      {"Fornecedor": "Blumenau", "Locais": "Blumenau", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://blumenauiluminacao.com.br/onde-encontrar", "Código IBGE": 4202404, "Latitude": -26.9155, "Longitude": -49.0709},
+      {"Fornecedor": "Blumenau", "Locais": "Blumenau", "Modalidade": "Fábrica/CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://blumenauiluminacao.com.br/onde-encontrar", "Código IBGE": 4202404, "Latitude": -26.9155, "Longitude": -49.0709},
+      {"Fornecedor": "Taschibra", "Locais": "Indaial", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.taschibra.com.br/pt_BR/empresa", "Código IBGE": 4207502, "Latitude": -26.8992, "Longitude": -49.2354},
+      {"Fornecedor": "G-Light", "Locais": "Feira de Santana", "Modalidade": "CD", "UF": "BA", "Região": "Nordeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.glight.com.br/representantes", "Código IBGE": 2910805, "Latitude": -12.2664, "Longitude": -38.9663},
+      {"Fornecedor": "G-Light", "Locais": "Blumenau", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.glight.com.br/representantes", "Código IBGE": 4202404, "Latitude": -26.9155, "Longitude": -49.0709},
+      {"Fornecedor": "Nitrolux", "Locais": "Recife", "Modalidade": "CD", "UF": "PE", "Região": "Nordeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.nitrolux.com.br/institucional.html", "Código IBGE": 2611606, "Latitude": -8.0476, "Longitude": -34.877},
+      {"Fornecedor": "Nitrolux", "Locais": "Camaçari", "Modalidade": "CD", "UF": "BA", "Região": "Nordeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.nitrolux.com.br/institucional.html", "Código IBGE": 2905706, "Latitude": -12.697, "Longitude": -38.324},
+      {"Fornecedor": "Nitrolux", "Locais": "Guarulhos", "Modalidade": "CD", "UF": "SP", "Região": "Sudeste", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.lg.com/global/corporate-info/#jeongdo", "Código IBGE": 3518800, "Latitude": -23.4543, "Longitude": -46.5337},
+	{"Fornecedor": "LG", "Locais": "Manaus", "Modalidade": "CD", "UF": "AM", "Região": "Norte", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.lg.com/global/corporate-info/#jeongdo", "Código IBGE": 1302603, "Latitude": -31190, "Longitude": -600217},
+	{"Fornecedor": "LG", "Locais": "Manaus", "Modalidade": "CD", "UF": "AM", "Região": "Norte", "M² Área Construída": 0, "M.O própria/Terceira": "-", "Fontes": "https://www.lg.com/global/corporate-info/#jeongdo", "Código IBGE": 1302603, "Latitude": -31190, "Longitude": -600217},
+	{"Fornecedor": "LG", "Locais": "Curitiba", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 77000, "M.O própria/Terceira": "-", "Fontes": "https://www.lg.com/global/corporate-info/#jeongdo", "Código IBGE": 4106902, "Latitude": -254284, "Longitude": -492733},
+	{"Fornecedor": "LG", "Locais": "Curitiba", "Modalidade": "CD", "UF": "SC", "Região": "Sul", "M² Área Construída": 77000, "M.O própria/Terceira": "-", "Fontes": "https://www.lg.com/global/corporate-info/#jeongdo", "Código IBGE": 4106902, "Latitude": -254284, "Longitude": -492733}];
+    const CITY_COORDS = {"Ara\u00e7ariguama": [-23.435, -47.061], "Concei\u00e7\u00e3o do Jacu\u00edpe": [-12.326, -38.768], "Cruz das Almas": [-12.675, -39.101], "Manaus": [-3.119, -60.021], "Curitiba": [-25.428, -49.273], "Itaja\u00ed": [-26.907, -48.661], "Jundia\u00ed": [-23.185, -46.897], "Novo Hamburgo": [-29.686, -51.132], "Feira de Santana": [-12.257, -38.964], "Aparecida de Goiania": [-16.82, -49.246], "Betim": [-19.967, -44.198], "Cabo de Sto Agostinho": [-8.284, -35.032], "Conde": [-7.258, -34.91], "Vila Velha": [-20.365, -40.318], "Araquari": [-26.375, -48.718], "Guarulhos": [-23.453, -46.533], "Palmas": [-10.184, -48.333], "Sim\u00f5es e Filho": [-12.792, -38.431], "Cuiab\u00e1": [-15.601, -56.097], "Extrema": [-22.855, -46.319], "Curitiba ": [-25.428, -49.273], "Cachoeirinha ": [-29.951, -51.098], "Garuva": [-26.029, -48.852], "Navegantes": [-26.898, -48.654], "Osasco ": [-23.532, -46.792], "Cajamar": [-23.355, -46.878], "Bel\u00e9m": [-1.456, -48.501], "Carlos Barbosa": [-29.296, -51.504], "Recife": [-8.054, -34.881], "Farroupilha": [-29.226, -51.342], "Garibaldi": [-29.254, -51.535], "Jaragu\u00e1 do Sul": [-26.485, -49.065], "Guaramirim": [-26.47, -49.002], "Blumenau": [-26.92, -49.065], "S\u00e3o Bernardo do Campo": [-23.693, -46.564], "Mau\u00e1": [-23.667, -46.461], "Monte Alto": [-21.261, -48.496], "Sert\u00e3ozinho": [-21.137, -47.99], "Jaboat\u00e3o dos Guararapes": [-8.113, -35.015], "Pouso Alegre": [-22.23, -45.94], "Resende": [-22.468, -44.446], "Joinville": [-26.304, -48.846], "Canoas": [-29.917, -51.183], "Espirito Santo": [-20.315, -40.312], "Bento Gon\u00e7alves": [-29.166, -51.516], "Gravata\u00ed": [-29.944, -50.992], "S\u00e3o Jos\u00e9": [-27.615, -48.629], "Tubar\u00e3o": [-28.471, -49.013], "Santa Rita do Sapuca\u00ed": [-22.252, -45.704], "Mogi": [-23.524, -46.188], "Cabo de Santo Agostinho": [-8.284, -35.032], "Campo Grande": [-20.4697, -54.6201], "Joinville": [-26.3044, -48.8487], "Farroupilha": [-29.2236, -51.3478], "Extrema, Minas Gerais": [-22.8545, -46.317], "Guarulhos": [-23.4543, -46.5337], "Manaus": [-3.119, -60.0217], "S\u00e3o Jos\u00e9 dos Campos": [-23.2237, -45.9009], "Extrema, Minas Gerais": [-22.8545, -46.317], "Guararema": [-23.4112, -46.0369], "Aruj\u00e1": [-23.3965, -46.3206], "Caxias do Sul": [-29.1678, -51.1794], "Indaial": [-26.8992, -49.2354], "Recife": [-8.0476, -34.877], "Cama\u00e7ari": [-12.697, -38.324], "Aparecida de Goi\u00e2nia": [-16.8198, -49.2469], "Conde, Bahia": [-7.2592, -34.9076], "Palmas, Tocantins": [-10.2491, -48.3243], "Osasco": [-23.5324, -46.7916], "Cajamar, S\u00e3o Paulo": [-23.3561, -46.8764], "Sim\u00f5es Filho": [-12.7866, -38.4026], "Cachoeirinha": [-29.9472, -51.1016], "Garibaldi, Rio Grande do Sul": [-29.259, -51.5333], "Linhares": [-19.3947, -40.0643], "Bento Gon\u00e7alves, Rio Grande do Sul": [-29.1667, -51.5167], "Monte Alto, S\u00e3o Paulo": [-21.2614, -48.4978], "Varginha": [-21.5556, -45.4364], "Barueri": [-23.5057, -46.879], "Lages": [-27.8157, -50.326], "Contagem": [-19.9318, -44.0539], "Tabo\u00e3o da Serra": [-23.601944444444, -46.752777777778], "Maring\u00e1": [-23.4200, -51.9333], "S\u00e3o Paulo": [-23.5505, -46.6333], "Mogi das Cruzes": [-23.5203, -46.1854]};
+    const BRAND_BLUE = "#1A76B7";
+    const OTHER_RED = "#8B0000";
+    const PETROLEUM = "#2F3B52";
+
+    let map, statesLayer, markersLayer;
+
+    function init() {
+      document.getElementById('tabDashboard').onclick = () => showTab('dashboard');
+      document.getElementById('tabBase').onclick = () => showTab('base');
+
+      populateFilters();
+      setupMap();
+      updateAll(DATA);
+      buildBaseTable(DATA);
+    }
+
+    function showTab(which) {
+      const dash = document.getElementById('viewDashboard');
+      const base = document.getElementById('viewBase');
+      const btnDash = document.getElementById('tabDashboard');
+      const btnBase = document.getElementById('tabBase');
+      if (which === 'dashboard') {
+        dash.classList.remove('hidden');
+        base.classList.add('hidden');
+        btnDash.classList.add('active');
+        btnBase.classList.remove('active');
+      } else {
+        dash.classList.add('hidden');
+        base.classList.remove('hidden');
+        btnDash.classList.remove('active');
+        btnBase.classList.add('active');
+      }
+    }
+
+    function populateFilters() {
+      const fornecedorSel = document.getElementById('fornecedorFilter');
+      const regiaoSel = document.getElementById('regiaoFilter');
+      const ufSel = document.getElementById('ufFilter');
+      const modalidadeSel = document.getElementById('modalidadeFilter');
+
+      const fornecedores = [...new Set(DATA.map(d => d.Fornecedor))].sort();
+      const regioes = [...new Set(DATA.map(d => d.Região))].sort();
+      const ufs = [...new Set(DATA.map(d => d.UF))].sort();
+      const modalidades = [...new Set(DATA.map(d => d.Modalidade))].sort();
+
+      fornecedores.forEach(f => fornecedorSel.innerHTML += `<option value="${f}">${f}</option>`);
+      regioes.forEach(r => regiaoSel.innerHTML += `<option value="${r}">${r}</option>`);
+      ufs.forEach(u => ufSel.innerHTML += `<option value="${u}">${u}</option>`);
+      modalidades.forEach(m => modalidadeSel.innerHTML += `<option value="${m}">${m}</option>`);
+
+      fornecedorSel.onchange = applyFilters;
+      regiaoSel.onchange = applyFilters;
+      ufSel.onchange = applyFilters;
+      modalidadeSel.onchange = applyFilters;
+    }
+
+    function setupMap() {
+      map = L.map('map').setView([-14.235, -51.925], 4);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 18
+      }).addTo(map);
+
+      statesLayer = L.geoJSON(null, {
+        style: feature => ({
+          color: '#b5c2cc', weight: 1, fillColor: '#e6eef3', fillOpacity: 0.35
+        })
+      }).addTo(map);
+
+      markersLayer = L.layerGroup().addTo(map);
+
+      fetch('https://raw.githubusercontent.com/giuliano-macedo/geodata-br-states/main/geojson/br_states.json')
+        .then(r => r.json())
+        .then(geo => {
+          statesLayer.addData(geo);
+        });
+    }
+
+    // Helper: pega valores de select simples ou múltiplo
+    function getSelectValues(select) {
+      if (select.multiple) {
+        return Array.from(select.selectedOptions).map(o => o.value);
+      }
+      return select.value ? [select.value] : [];
+    }
+
+    function applyFilters() {
+      const selectedFornecedores = getSelectValues(document.getElementById('fornecedorFilter'));
+      const selectedRegioes = getSelectValues(document.getElementById('regiaoFilter'));
+      const selectedUfs = getSelectValues(document.getElementById('ufFilter'));
+      const selectedModalidades = getSelectValues(document.getElementById('modalidadeFilter'));
+
+      const filtered = DATA.filter(d => {
+        // Se a lista estiver vazia ou contiver string vazia "", considera "todos"
+        const matchForn = selectedFornecedores.length === 0 || selectedFornecedores.includes(d.Fornecedor);
+        const matchReg  = selectedRegioes.length === 0 || selectedRegioes.includes("") || selectedRegioes.includes(d.Região);
+        const matchUf   = selectedUfs.length === 0 || selectedUfs.includes("") || selectedUfs.includes(d.UF);
+        const matchMod  = selectedModalidades.length === 0 || selectedModalidades.includes("") || selectedModalidades.includes(d.Modalidade);
+        
+        return matchForn && matchReg && matchUf && matchMod;
+      });
+      
+      // Contexto para highlight (pega o primeiro se for simples)
+      const ctx = {
+        regiao: (selectedRegioes.length === 1 && selectedRegioes[0] !== "") ? selectedRegioes[0] : null,
+        uf: (selectedUfs.length === 1 && selectedUfs[0] !== "") ? selectedUfs[0] : null
+      };
+
+      updateAll(filtered, ctx);
+    }
+
+    function resetFilters() {
+      // Reseta todos os selects
+      const selects = document.querySelectorAll('.filters select');
+      selects.forEach(s => {
+         s.value = "";
+         // Para multi-select, remove a seleção
+         Array.from(s.options).forEach(o => o.selected = false);
+      });
+      applyFilters();
+    }
+
+    function updateAll(arr, ctx={}) {
+      updateKPIs(arr);
+      renderSummary(arr);
+      renderMarkers(arr);
+      highlightStates(arr, ctx);
+    }
+
+    function updateKPIs(arr) {
+      document.getElementById('kpiFornecedores').textContent = new Set(arr.map(d => d.Fornecedor)).size;
+      document.getElementById('kpiFabrica').textContent = arr.filter(d => d.Modalidade === 'Fábrica').length;
+    }
+
+    function renderSummary(arr) {
+      const tbody = document.getElementById('summaryBody');
+      tbody.innerHTML = '';
+      const mapAgg = new Map();
+      arr.forEach(d => {
+        const k = `${d.Fornecedor}|${d.Região}`;
+        if(!mapAgg.has(k)) mapAgg.set(k, { fornecedor: d.Fornecedor, regiao: d.Região, sites: 0, area: 0 });
+        const it = mapAgg.get(k);
+        it.sites += 1;
+        it.area += parseFloat(d['M² Área Construída']) || 0;
+        mapAgg.set(k, it);
+      });
+      Array.from(mapAgg.values()).forEach(r => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.fornecedor}</td><td>${r.regiao}</td><td>${r.sites}</td><td>${r.area.toLocaleString()}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderMarkers(arr) {
+      markersLayer.clearLayers();
+      
+      // ORDENAÇÃO: Garante que a Elgin seja desenhada por ÚLTIMO na lista.
+      const sortedArr = [...arr].sort((a, b) => {
+        const isElginA = a.Fornecedor.toLowerCase().includes('elgin');
+        const isElginB = b.Fornecedor.toLowerCase().includes('elgin');
+        if (isElginA && !isElginB) return 1;  
+        if (!isElginA && isElginB) return -1; 
+        return 0;
+      });
+
+      sortedArr.forEach(d => {
+        const place = d.Locais;
+        const c = CITY_COORDS[place];
+        if (!c) return;
+        const color = (d.Fornecedor && d.Fornecedor.toLowerCase().includes('elgin')) ? BRAND_BLUE : OTHER_RED;
+        const icon = L.divIcon({ className: 'custom-marker', html: '<span style="background:' + color + ';width:12px;height:12px;border-radius:50%;display:inline-block;"></span>', iconSize:[12,12] });
+        const m = L.marker(c, { icon }).bindPopup('<b>' + d.Fornecedor + '</b><br>' + d.Locais + ' / ' + d.UF + '<br>' + d.Modalidade + '<br>Área: ' + ((parseFloat(d['M² Área Construída'])||0).toLocaleString()) + ' m²');
+        markersLayer.addLayer(m);
+      });
+    }
+
+    function highlightStates(arr, ctx) {
+      const ufs = new Set(arr.map(d => d.UF));
+      statesLayer.setStyle(feature => {
+        const uf = feature.properties && (feature.properties.sigla || feature.properties.UF || feature.properties.uf);
+        const reg = feature.properties && (feature.properties.regiao || feature.properties.Regiao || feature.properties.region);
+        let fill = '#e6eef3';
+        let opacity = 0.35;
+        if (ctx.uf && uf === ctx.uf) { fill = BRAND_BLUE; opacity = 0.55; }
+        else if (ctx.regiao && reg === ctx.regiao) { fill = BRAND_BLUE; opacity = 0.4; }
+        else if (ufs.has(uf)) { fill = '#cfe4ef'; opacity = 0.45; }
+        return { color: '#b5c2cc', weight: 1, fillColor: fill, fillOpacity: opacity };
+      });
+    }
+
+    function buildBaseTable(arr) {
+      const head = document.getElementById('baseHead');
+      const body = document.getElementById('baseBody');
+      head.innerHTML = '';
+      body.innerHTML = '';
+      const cols = Object.keys(arr[0] || {});
+      const trh = document.createElement('tr');
+      cols.forEach(c => { const th = document.createElement('th'); th.textContent = c; trh.appendChild(th); });
+      head.appendChild(trh);
+      arr.forEach(r => {
+        const tr = document.createElement('tr');
+        cols.forEach(c => { const td = document.createElement('td'); td.textContent = r[c]; tr.appendChild(td); });
+        body.appendChild(tr);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
